@@ -5,7 +5,7 @@
 #include <linux/timer.h>
 #include <linux/timekeeping.h>
 
-#define FPGA_HEX_BASE 0xff233000 // Adresse à adapter si besoin
+#define FPGA_HEX_BASE 0xff233000 /// ALT_LWFPGASLVS_OFST + 0x33000
 #define DIGIT_COUNT   6
 
 static void __iomem *hex_base = NULL;

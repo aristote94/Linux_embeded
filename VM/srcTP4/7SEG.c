@@ -3,7 +3,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 
-#define FPGA_HEX_BASE 0xff233000 // Adapt this address if needed
+#define FPGA_HEX_BASE 0xff233000 // ALT_LWFPGASLVS_OFST + 0x33000
 #define DIGIT_COUNT   6
 
 static void __iomem *hex_base = NULL;
