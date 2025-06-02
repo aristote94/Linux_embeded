@@ -57,7 +57,7 @@ make prepare
 make scripts
 ```
 
-Compilation croisée sur la VM Ubuntu.
+Compilation croisée sur la VM fournie en TD.
 
 ---
 
@@ -143,7 +143,7 @@ Le fichier `7SEG.c` initialise les afficheurs HEX et affiche les chiffres 1 à 6
 iowrite32(szMask[i + 1], hex_base + 4 * i);
 ```
 
-L’adresse utilisée est `0xFF233000`, obtenue par analyse de `fpga.cpp` (projet Quartus).
+L’adresse utilisée est `0xFF233000`, déterminée par analyse de `fpga.cpp` ;(projet Quartus).
 
 ### 4.2 Affichage de l’heure (`7SEGHeure.c`)
 
@@ -164,7 +164,7 @@ for (i = 0; i < DIGIT_COUNT; i++) {
 }
 ```
 
-Remarque : la tentative de synchronisation avec l’heure RTC ou Internet n’a pas modifié l’heure noyau, uniquement celle de l’environnement utilisateur LXDE.
+Remarque : la tentative de synchronisation avec l’heure RTC ou Internet n’a pas modifié l’heure noyau, uniquement celle de l’environnement utilisateur LXDE. La seule option viable est le décalage de 2h dans le soft ;).
 
 ---
 
