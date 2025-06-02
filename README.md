@@ -7,29 +7,22 @@
 
 ---
 
-## Introduction
+## 1. Prise en main
 
-Ce compte rendu détaille les travaux réalisés dans le cadre du TP de Linux embarqué sur la carte VEEK-MT2S. Ce TP avait pour objectif de mettre en œuvre les concepts vus en cours et en TD, notamment :
-
-* Le développement de modules noyau Linux
-* L’interaction avec l’espace utilisateur (via `/proc` et `/dev`)
-* L’accès direct au matériel (via `ioremap`, `mmap`)
-* L’utilisation du Device Tree
-* La mise en œuvre d’un projet d’affichage sur afficheurs 7 segments
+*(Cette section est implicite dans notre travail mais non traitée en détail dans ce compte rendu)*
 
 ---
 
-## 2 Modules kernel (TP2)
+## 2. Modules kernel (TP2)
 
 ### 2.1 Accès aux registres
 
-Un programme en espace utilisateur a été développé pour accéder directement aux registres mémoire de la carte via `mmap()`, en particulier à l’adresse `0xFF203000` (GPIO).
+Un programme en espace utilisateur a été développé pour accéder directement aux registres mémoire de la carte via `mmap()`, notamment à l’adresse `0xFF203000` (GPIO).
+Cette méthode est rapide mais :
 
-Cette méthode permet une mise en œuvre rapide, mais présente des limites :
-
-* Non portable (liée à une adresse physique fixe)
-* Moins sécurisé (pas de contrôle par le noyau)
-* Non maintenable à long terme (contraire aux pratiques Linux)
+* Non portable (adresse physique fixe)
+* Moins sécurisée (pas de contrôle noyau)
+* Non maintenable à long terme (non conforme aux pratiques Linux)
 
 ---
 
@@ -37,7 +30,7 @@ Cette méthode permet une mise en œuvre rapide, mais présente des limites :
 
 #### Question 1 – Création d’un module noyau simple
 
-Un premier module a été créé avec les fonctions `__init` et `__exit`. Il affiche un message via `printk()` lors du chargement et déchargement.
+Un premier module simple a été créé, avec les fonctions `__init` et `__exit`, affichant des messages via `printk()` au chargement/déchargement :
 
 ```c
 static int __init mon_module_init(void) {
@@ -46,25 +39,20 @@ static int __init mon_module_init(void) {
 }
 ```
 
-Ce module a été compilé sur la VM à l’aide du noyau source Terasic (`linux-socfpga`) et testé sur la carte via `insmod`, `rmmod`, et vérifié avec `dmesg`.
+Ce module a été compilé avec les sources du noyau `linux-socfpga`, testé avec `insmod`, `rmmod` et vérifié via `dmesg`.
 
 #### Question 2 – Enregistrement d’un driver caractère
 
-Nous avons ajouté un driver caractère via `register_chrdev()` et une structure `file_operations` :
-
-```c
-register_chrdev(240, "le_driver", &fops);
-```
-
-Les fonctions `.open` et `.release` génèrent des messages dans `dmesg` pour vérifier l’appel des fonctions.
+Ajout d’un driver caractère avec `register_chrdev()` et une structure `file_operations`.
+Les fonctions `.open` et `.release` affichent des messages pour valider leur bon fonctionnement.
 
 ---
 
 ### 2.3 Cross-compilation de modules noyau
 
-Nous avons réalisé la compilation croisée depuis la VM, en utilisant les outils `arm-linux-gnueabihf-` et les en-têtes du noyau extraits depuis la carte. Le fichier `/proc/config.gz` a été récupéré, décompressé, puis renommé en `.config`.
+#### 2.3.1 Préparation de la compilation
 
-Les commandes suivantes ont été utilisées pour préparer la compilation :
+Récupération du fichier `/proc/config.gz` depuis la carte, décompression et renommage en `.config`. Commandes utilisées :
 
 ```bash
 export CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf-
@@ -73,39 +61,27 @@ make prepare
 make scripts
 ```
 
-Ensuite, les modules ont été compilés avec `make`.
+Compilation ensuite avec `make`.
 
 ---
 
-### 2.4 Driver noyau pour LEDs avec accès matériel et /proc
+### 2.4 Chenillard
 
-#### Question 1 – Écriture d’un driver simple
+Un module chenillard utilisant un timer noyau (`mod_timer`) a été implémenté :
 
-Un module de type platform driver a été développé pour piloter les LEDs connectées à l’IP "dev,ensea", déclarée dans le Device Tree. Le mapping des registres a été fait via :
+* **/proc/ensea/speed** : configurer la vitesse
+* **/proc/ensea/dir** : changer le sens du chenillard
+* **/dev/ensea\_leds** : lire/écrire le pattern courant
 
-```c
-dev->regs = devm_ioremap_resource(&pdev->dev, r);
-```
-
-L’écriture dans le registre s’effectue avec `iowrite32()`.
-
-Une interface utilisateur `/dev/ensea_leds` a été créée pour permettre la lecture et l’écriture de l’état des LEDs.
-
-#### Question 2 – Ajout d’un chenillard configurable
-
-Le module a été enrichi d’un timer noyau (`mod_timer`) pour créer un chenillard.
-
-* La **vitesse** du balayage est configurable via `/proc/ensea/speed`
-* Le **sens** du chenillard est modifiable via `/proc/ensea/dir`
-* Le **pattern courant** est modifiable par écriture dans `/dev/ensea_leds`, et lisible depuis ce même fichier
-
-Le timer utilise `jiffies` et `msecs_to_jiffies()` pour le timing.
+Le timer est basé sur `jiffies` et `msecs_to_jiffies()` pour le timing. Le pattern est écrit avec `iowrite32()`.
 
 ---
 
-### 2.5 Intégration du module dans le Device Tree
+## 3. Device Tree (TP3)
 
-Un nœud a été ajouté dans le fichier `.dts` pour déclarer notre périphérique :
+### 3.1 Intégration du module dans le Device Tree
+
+Ajout d’un nœud dans le fichier `.dts` :
 
 ```dts
 ensea_leds@0xff200000 {
@@ -114,46 +90,71 @@ ensea_leds@0xff200000 {
 };
 ```
 
-Le driver utilise `of_match_table` pour détecter automatiquement ce nœud à l'initialisation. Le fichier `.dtb` a été recompilé avec `dtc` et copié sur la partition `/mntboot` de la carte.
+Le module utilise `of_match_table` pour détecter ce nœud à l’initialisation. Compilation via `dtc`, puis copie du `.dtb` dans `/mntboot`.
 
 ---
 
-## 4 Petit projet : Afficheurs 7 segments
+### 3.2 Module accédant aux LEDs via /dev
+
+Développement d’un platform driver contrôlant des LEDs déclarées dans le Device Tree. Mapping via :
+
+```c
+dev->regs = devm_ioremap_resource(&pdev->dev, r);
+```
+
+Interface utilisateur créée via `/dev/ensea_leds` avec les fonctions `.read` / `.write` / `.open` / `.release`.
+
+---
+
+### 3.3 Module final – Chenillard complet
+
+Fonctionnalités finales respectées :
+
+* **/proc/ensea/speed** : lecture de la vitesse
+* **/proc/ensea/dir** : lecture/écriture du sens
+* **/dev/ensea\_leds** : lecture/écriture du pattern
+* Timer noyau utilisé pour l'animation du chenillard
+
+---
+
+## 4. Petit projet : Afficheurs 7 segments
 
 ### 4.1 Prise en main
 
-Un premier module (`7SEG.c`) a été développé pour écrire une valeur fixe sur les afficheurs 7 segments (appelés "HEX"). L’adresse de base a été obtenue depuis le fichier `fpga.cpp` fourni par Terasic.
-
-Les segments sont commandés par écriture mémoire directe :
+Développement du module `7SEG.c` pour afficher une valeur fixe sur les afficheurs HEX. Utilisation de :
 
 ```c
 iowrite32(szMask[i], hex_base + 4 * i);
 ```
 
+L’adresse de base a été récupérée via `fpga.cpp`.
+
+---
+
 ### 4.2 Affichage de l’heure (`7SEGHeure.c`)
 
-Un module noyau avec timer affiche chaque seconde l’heure du système (format HHMMSS) sur les afficheurs. L’heure est obtenue via :
+Un module avec timer noyau affiche l’heure système (HHMMSS) chaque seconde, avec :
 
 ```c
 ktime_get_real_ts64(&ts);
 time_to_tm(ts.tv_sec, 0, &tm);
 ```
 
-Les six chiffres sont affichés en miroir. La mise à jour se fait automatiquement toutes les secondes grâce à un timer périodique.
+Le tout est affiché en miroir sur les afficheurs HEX.
 
 #### Remarque
 
-Une tentative a été faite pour synchroniser avec l’heure réelle (RTC ou Internet), mais cette heure ne se reflète pas directement dans le noyau ; seule l’interface graphique LXDE de la carte semblait être impactée.
+Une tentative de synchronisation avec une source RTC ou Internet n’a pas modifié l'heure noyau, uniquement celle de l’interface LXDE.
 
 ---
 
 ## Conclusion
 
-Ce TP a permis de mettre en pratique des notions avancées de Linux embarqué :
+Ce TP a permis :
 
-* Écriture de modules noyau simples et complexes (drivers, timers)
-* Interaction avec l’espace utilisateur via `/dev` et `/proc`
-* Cross-compilation de modules noyau
-* Utilisation du Device Tree pour l’abstraction matérielle
-* Programmation de périphériques réels (LEDs, afficheurs 7 segments)
-* Déploiement et test sur une plateforme FPGA SoC réelle
+* Écriture de modules noyau simples/complexes (timers, drivers)
+* Communication avec l’espace utilisateur via `/dev`, `/proc`
+* Cross-compilation de modules sur VM Linux
+* Manipulation du Device Tree
+* Accès matériel réel (LEDs, afficheurs 7 segments)
+* Déploiement sur une vraie plateforme SoC FPGA (VEEK-MT2S)
